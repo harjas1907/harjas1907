@@ -1,0 +1,52 @@
+from dronekit import connect, VehicleMode, LocationGlobalRelative
+import time
+import math
+
+# Connect to the Vehicle (Pixhawk)
+vehicle = connect('127.0.0.1:14550', wait_ready=True)
+
+def arm_and_takeoff(aTargetAltitude):
+    print("Basic pre-arm checks")
+    while not vehicle.is_armable:
+        print(" Waiting for vehicle to initialise...")
+        time.sleep(1)
+
+    print("Arming motors")
+    vehicle.mode = VehicleMode("GUIDED")
+    vehicle.armed = True
+
+    while not vehicle.armed:
+        print(" Waiting for arming...")
+        time.sleep(1)
+
+    print("Taking off!")
+    vehicle.simple_takeoff(aTargetAltitude)
+
+    while True:
+        print(" Altitude: ", vehicle.location.global_relative_frame.alt)
+        if vehicle.location.global_relative_frame.alt >= aTargetAltitude * 0.95:
+            print("Reached target altitude")
+            break
+        time.sleep(1)
+
+def fly_in_circles(radius, altitude, num_circles):
+    center_location = vehicle.location.global_relative_frame
+
+    for i in range(num_circles*360):
+        angle = math.radians(i)
+        x = radius * math.cos(angle)
+        y = radius * math.sin(angle)
+        target_location = LocationGlobalRelative(center_location.lat + x / 1e7, center_location.lon + y / 1e7, altitude)
+        vehicle.simple_goto(target_location)
+        time.sleep(0.1)
+
+# Main script
+arm_and_takeoff(10)  # Take off to 10 meters altitude
+
+print("Flying in circles")
+fly_in_circles(radius=10, altitude=10, num_circles=3)
+
+print("Landing")
+vehicle.mode = VehicleMode("LAND")
+
+vehicle.close()
